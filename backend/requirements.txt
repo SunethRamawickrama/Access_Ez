@@ -1,0 +1,9 @@
+Flask
+flask-cors
+requests
+flask_sqlalchemy
+flask_migrate
+flask_cors 
+ultralytics
+torch
+numpy
