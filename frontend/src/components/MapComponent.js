@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GoogleMap, Marker, useLoadScript} from "@react-google-maps/api";
 
 import usePlacesAutocomplete, {
@@ -29,10 +29,13 @@ function MapComponent() {
   const [markerPosition, setMarkerPosition] = useState(center);
   const [googleStreetView, setGoogleStreetView] = useState(null);
   const [detectedImage, setDetectedImage] = useState(null);
+  const [classes, setClasses] = useState([])
+
+  useEffect (()=>{}, [classes])
 
   if (!isLoaded) return <div>Loading...</div>;
 
-  const handleOnClick = (e)=> {
+  const handleOnClick = async (e)=> {
     const lat = e.latLng.lat();
     const lng = e.latLng.lng();
     setMarkerPosition({lat, lng});
@@ -41,18 +44,51 @@ function MapComponent() {
     const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x300&location=${lat},${lng}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`;
     //setGoogleStreetView(streetViewUrl);
     
-    fetch ("http://localhost:5000/upload", {
+    
+    try {
+    fetch ( "http://localhost:5000/upload", {
       method: "POST",
       headers: {"Content-Type": "application/json" },
       body: JSON.stringify({ lat, lng, streetViewUrl }),
-    }).then (response => response.blob())
-    .then( (data) =>  {
-      const processedImageUrl = URL.createObjectURL(data); 
-      setGoogleStreetView(streetViewUrl);
-      setDetectedImage(processedImageUrl);
+    }).
+    then ( async (response) => {
+        if (!response.ok){  
+          throw new Error ('Not found')
+        }
+        
+        let blob = await response.blob();
+        const processedImageUrl = URL.createObjectURL(blob);
+        setGoogleStreetView(streetViewUrl);
+        setDetectedImage(processedImageUrl);
+    })
+    .catch( (error) =>  {
+       console.log('Error fetching ', error)
     });
+
+    await new Promise((resolve) => setTimeout(resolve, 500)); 
+
+    fetch ( "http://localhost:5000/get-classes", {
+      method: "GET"
+    }).
+    then ( async (response) => {
+        if (!response.ok){  
+          throw new Error ('Not found')
+        }
+        
+        console.log(response)
+        let class_list = await response.json();
+        console.log("changing class now with ", class_list)
+        setClasses(class_list.classes)
+    })
+
+    
+  }
+  catch( error ) {
+       console.log('Error fetching ', error)
+  };
    
   }
+
 
   return (
     <>
@@ -63,9 +99,16 @@ function MapComponent() {
 
       <div>
           <h3>Street View Image</h3>
-          <img src={googleStreetView} alt="Street View" />
+          <img className="" src={googleStreetView} alt="Street View" />
           <img src={detectedImage} alt="Street View" />
       </div>
+
+      <h3>Detected classes</h3>
+      <ul>
+        {classes.map((cls, index) => (
+          <li key={index}>{cls}</li>
+        ))}
+      </ul>
     </>
   );
 }
